@@ -24,6 +24,10 @@ connection_parameters = {
     "client_session_keep_alive": True
 }
 
+# Initialize variables
+session = None
+my_dataframe = None
+
 # Create Snowflake session
 try:
     session = Session.builder.configs(connection_parameters).create()
@@ -31,14 +35,15 @@ try:
 except Exception as e:
     st.error(f"Failed to connect to Snowflake: {e}")
 
-# Retrieve data from Snowflake
-try:
-    my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME')).to_pandas()
-except Exception as e:
-    st.error(f"Failed to retrieve data: {e}")
+# Retrieve data from Snowflake if session is established
+if session:
+    try:
+        my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME')).to_pandas()
+    except Exception as e:
+        st.error(f"Failed to retrieve data: {e}")
 
-# Display multiselect for ingredients
-if not my_dataframe.empty:
+# Display multiselect for ingredients if data is available
+if my_dataframe is not None and not my_dataframe.empty:
     ingredients_list = st.multiselect(
         'Choose up to 5 ingredients:',
         my_dataframe['FRUIT_NAME'].tolist(),
@@ -65,4 +70,7 @@ if not my_dataframe.empty:
             except Exception as e:
                 st.error(f"Failed to submit order: {e}")
 else:
-    st.success('No available ingredients right now', icon='👍')
+    if session:
+        st.success('No available ingredients right now', icon='👍')
+    else:
+        st.error('Cannot display ingredients as the connection to Snowflake failed.')
