@@ -1,94 +1,53 @@
 import streamlit as st
-from snowflake.snowpark import Session
 from snowflake.snowpark.functions import col
 import requests
+import pandas
 
 # Write directly to the app
-st.title(":cup_with_straw: Customize Your Smoothie :cup_with_straw:")
+st.title(":cup_with_straw: Customize your smoothie! :cup_with_straw:")
 st.write(
     """Choose the fruits you want in your custom smoothie!
     """
 )
 
-name_on_order = st.text_input("Name On Smoothie:")
-st.write("The Name On Your Smoothie Will be:", name_on_order)
+name_in_order = st.text_input('Name on smoothie:')
+st.write('The name on your smoothie will be: ', name_in_order)
 
-# Retrieve connection parameters from Streamlit secrets
-connection_parameters = {
-    "account": st.secrets["snowflake"]["account"],
-    "user": st.secrets["snowflake"]["user"],
-    "password": st.secrets["snowflake"]["password"],
-    "role": st.secrets["snowflake"]["role"],
-    "warehouse": st.secrets["snowflake"]["warehouse"],
-    "database": st.secrets["snowflake"]["database"],
-    "schema": st.secrets["snowflake"]["schema"],
-    "client_session_keep_alive": True
-}
+cnx = st.connection("snowflake")
+session = cnx.session()
+my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'), col('search_on'))
+#st.dataframe(data=my_dataframe, use_container_width=True)
+#st.stop()
 
-# Initialize variables
-session = None
-my_dataframe = None
+pd_df=my_dataframe.to_pandas()
+#st.dataframe(pd_df)
+#st.stop()
 
-# Create Snowflake session
-try:
-    session = Session.builder.configs(connection_parameters).create()
-    st.success("Connected to Snowflake!")
-except Exception as e:
-    st.error(f"Failed to connect to Snowflake: {e}")
+ingredients_list = st.multiselect(
+    'Choose up to 5 ingredients:'
+    , my_dataframe
+    , max_selections = 5
+)
 
-# Retrieve data from Snowflake if session is established
-if session:
-    try:
-        my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'),col('SEARCH_ON')).to_pandas()
-    except Exception as e:
-        st.error(f"Failed to retrieve data: {e}")
+if ingredients_list:
 
-# Display multiselect for ingredients if data is available
-if my_dataframe is not None and not my_dataframe.empty:
-    ingredients_list = st.multiselect(
-        'Choose up to 5 ingredients:',
-        my_dataframe['FRUIT_NAME'].tolist(),
-        max_selections=5
-    )
+    ingredients_string = ''
 
-    if ingredients_list:
-        ingredients_string = ' '.join(ingredients_list)
+    for fruit_chosen in ingredients_list:
+        ingredients_string += fruit_chosen + ' '
 
-        for fruit_chosen in ingredients_list:
-            search_on = my_dataframe.loc[my_dataframe['FRUIT_NAME'] == fruit_chosen, 'SEARCH_ON'].iloc[0]
-            st.subheader(f"{fruit_chosen} Nutrition Information")
-            st.write(f"The search value for {fruit_chosen} is {search_on}.")
+        search_on=pd_df.loc[pd_df['FRUIT_NAME'] == fruit_chosen, 'SEARCH_ON'].iloc[0]
+        #st.write('The search value for ', fruit_chosen,' is ', search_on, '.')
+        
+        st.subheader(fruit_chosen + ' Nutrition information')
+        fruityvice_response = requests.get("https://fruityvice.com/api/fruit/" + search_on) 
+        fv_df = st.dataframe(data=fruityvice_response.json(), use_container_width=True)
 
-            try:
-                fruityvice_response = requests.get(f"https://fruityvice.com/api/fruit/{search_on.lower()}")
-                fruityvice_response.raise_for_status()  # Raise an error for bad status codes
-                fruit_data = fruityvice_response.json()
-                fv_df = st.dataframe(data=fruit_data, use_container_width=True)
-            except Exception as e:
-                st.error(f"Failed to retrieve nutrition information for {fruit_chosen}: {e}")
+    my_insert_stmt = """ insert into smoothies.public.orders(ingredients, name_on_order) values ('""" + ingredients_string + """','""" + name_in_order + """')"""
+    
+    time_to_insert = st.button('Submit order')
 
-        my_insert_stmt = f"""
-        INSERT INTO smoothies.public.orders (ingredients, name_on_order)
-        VALUES ('{ingredients_string}', '{name_on_order}')
-        """
-
-        # Show the insert statement (for debugging purposes)
-        st.write(my_insert_stmt)
-
-        time_to_insert = st.button('Submit Order')
-
-        if time_to_insert:
-            try:
-                session.sql(my_insert_stmt).collect()
-                st.success('Your Smoothie is ordered!', icon="✅")
-            except Exception as e:
-                st.error(f"Failed to submit order: {e}")
-else:
-    if session:
-        st.success('No available ingredients right now', icon='👍')
-    else:
-        st.error('Cannot display ingredients as the connection to Snowflake failed.')
-
-
-
-
+    if time_to_insert:
+        if ingredients_string:
+            session.sql(my_insert_stmt).collect()
+            st.success('Your Smoothie is ordered, ' + name_in_order + '!', icon="✅")
