@@ -60,7 +60,7 @@ if my_dataframe is not None and not my_dataframe.empty:
                 fruityvice_response = requests.get(f"https://fruityvice.com/api/fruit/{fruit_chosen.lower()}")
                 fruityvice_response.raise_for_status()  # Raise an error for bad status codes
                 fruit_data = fruityvice_response.json()
-                st.write(fruit_data)
+                fv_df = st.dataframe(data=fruityvice_response.json(), use_container_width=True)
             except Exception as e:
                 st.error(f"Failed to retrieve nutrition information for {fruit_chosen}: {e}")
 
