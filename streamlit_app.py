@@ -74,3 +74,6 @@ else:
         st.success('No available ingredients right now', icon='👍')
     else:
         st.error('Cannot display ingredients as the connection to Snowflake failed.')
+import requests
+fruityvice_response = requests.get("https://fruityvice.com/api/fruit/watermelon")
+st.text(fruityvice_response)
