@@ -1,6 +1,7 @@
 import streamlit as st
 from snowflake.snowpark import Session
 from snowflake.snowpark.functions import col
+import requests
 
 # Write directly to the app
 st.title(":cup_with_straw: Customize Your Smoothie :cup_with_straw:")
@@ -53,6 +54,16 @@ if my_dataframe is not None and not my_dataframe.empty:
     if ingredients_list:
         ingredients_string = ' '.join(ingredients_list)
 
+         for fruit_chosen in ingredients_list:
+            st.subheader(f"{fruit_chosen} Nutrition Information")
+            try:
+                fruityvice_response = requests.get(f"https://fruityvice.com/api/fruit/{fruit_chosen.lower()}")
+                fruityvice_response.raise_for_status()  # Raise an error for bad status codes
+                fruit_data = fruityvice_response.json()
+                st.write(fruit_data)
+            except Exception as e:
+                st.error(f"Failed to retrieve nutrition information for {fruit_chosen}: {e}")
+
         my_insert_stmt = f"""
         INSERT INTO smoothies.public.orders (ingredients, name_on_order)
         VALUES ('{ingredients_string}', '{name_on_order}')
@@ -74,12 +85,7 @@ else:
         st.success('No available ingredients right now', icon='👍')
     else:
         st.error('Cannot display ingredients as the connection to Snowflake failed.')
-# New section to display fruityvice-nutrition information
 
-import requests
 
-fruityvice_response = requests.get("https://fruityvice.com/api/fruit/watermelon")
 
-#st.text(fruityvice_response.json())
 
-fv_df = st.dataframe(data=fruityvice_response.json(), use_container_width=True)
