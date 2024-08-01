@@ -39,7 +39,7 @@ except Exception as e:
 # Retrieve data from Snowflake if session is established
 if session:
     try:
-        my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME')).to_pandas()
+        my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'),col('SEARCH_ON')).to_pandas()
     except Exception as e:
         st.error(f"Failed to retrieve data: {e}")
 
