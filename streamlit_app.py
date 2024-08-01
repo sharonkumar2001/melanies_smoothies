@@ -55,12 +55,15 @@ if my_dataframe is not None and not my_dataframe.empty:
         ingredients_string = ' '.join(ingredients_list)
 
         for fruit_chosen in ingredients_list:
+            search_on = my_dataframe.loc[my_dataframe['FRUIT_NAME'] == fruit_chosen, 'SEARCH_ON'].iloc[0]
             st.subheader(f"{fruit_chosen} Nutrition Information")
+            st.write(f"The search value for {fruit_chosen} is {search_on}.")
+
             try:
-                fruityvice_response = requests.get(f"https://fruityvice.com/api/fruit/{fruit_chosen.lower()}")
+                fruityvice_response = requests.get(f"https://fruityvice.com/api/fruit/{search_on.lower()}")
                 fruityvice_response.raise_for_status()  # Raise an error for bad status codes
                 fruit_data = fruityvice_response.json()
-                fv_df = st.dataframe(data=fruityvice_response.json(), use_container_width=True)
+                fv_df = st.dataframe(data=fruit_data, use_container_width=True)
             except Exception as e:
                 st.error(f"Failed to retrieve nutrition information for {fruit_chosen}: {e}")
 
